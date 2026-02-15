@@ -218,3 +218,49 @@ npm run dev
 - No static analysis or AST parsing
 - Single model inference path
 - No benchmarking or evaluation metrics
+
+
+
+## Docker and CI(Additional Details)
+
+### Why Docker
+Docker provides a repeatable environment for both the backend and frontend, so dependencies and runtime behavior match across machines and CI. It also makes setup faster for new contributors and simplifies deployment by packaging the services with consistent versions.
+
+### Docker Setup (Cross-Platform)
+1. Install Docker Desktop: https://www.docker.com/products/docker-desktop/
+2. Ensure Docker is running and the Docker CLI is available.
+3. Confirm Compose v2 is installed:
+```
+docker compose version
+```
+
+### Running with Docker Compose
+From the repository root:
+```
+docker compose up --build
+```
+
+Services and ports:
+- Backend API: http://localhost:8000
+- Frontend UI: http://localhost:3000
+
+### Ollama with Docker
+Ollama runs outside Docker (on the host) and the backend container connects to it using:
+```
+OLLAMA_HOST=http://host.docker.internal:11434
+```
+This is already set in the Compose file for the backend service. Ensure Ollama is running before starting containers.
+
+### Dockerization Notes and Problems Faced
+1.Ollama was not reachable from the container at first. The fix was to use `host.docker.internal` so the backend can call the host Ollama server. On Linux, add an extra host mapping in `docker-compose.yml` if needed:
+  - `extra_hosts: ["host.docker.internal:host-gateway"]`
+2.Frontend Docker build failed due to dependency and build context issues. The working approach is a multi-stage build that runs `npm ci`, then `npm run build`, and copies `.next`, `public`, and `next.config.js` into the runtime image.
+
+### CI Pipeline (GitHub Actions)
+The CI pipeline validates the backend, frontend, and Docker build in one job. It runs on every push or pull request to `main` and performs:
+1. Checkout repository
+2. Set up Python 3.9 and install backend dependencies
+3. Validate backend imports with `python -c "import app"`
+4. Set up Node 20, install frontend dependencies, and build the frontend
+5. Build Docker images using Compose
+See [ci.yml](.github/workflows/ci.yml) for the exact steps.
